@@ -41,6 +41,14 @@
     </div>
 
     <script>
+        // ==========================================
+        // 🛑 GOOGLE SHEETS SETUP 🛑
+        // Paste your Google Web App URL (script.google.com/...) below!
+        // Do NOT paste the docs.google.com/spreadsheets/... link.
+        // ==========================================
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzaFcvuLqdoR3s9lL10Mz_QiEx8o183Me-AoALUXWH751D4j3QfUXdYnAxuCTVpuoMc1A/exec';
+
+
         // --- DATA DEFINITIONS ---
         const intelligenceDetails = {
             Linguistic: { icon: 'brain', color: 'bg-blue-500', textColor: 'text-blue-600', description: "Word Smart: You excel in words, language, and writing. You learn best by reading, taking notes, and listening to lectures." },
@@ -91,7 +99,7 @@
         ];
 
         // --- APP STATE ---
-        let currentState = 'intro'; // 'intro', 'test', 'results'
+        let currentState = 'intro'; // 'intro', 'test', 'ready-to-submit', 'submitting', 'results'
         let currentQIndex = 0;
         let answers = {}; // Maps question ID to score
         let userInfo = {
@@ -124,6 +132,10 @@
                 html += renderIntro();
             } else if (currentState === 'test') {
                 html += renderTest();
+            } else if (currentState === 'ready-to-submit') {
+                html += renderReadyToSubmit();
+            } else if (currentState === 'submitting') {
+                html += renderSubmitting();
             } else if (currentState === 'results') {
                 html += renderResults();
             }
@@ -244,6 +256,36 @@
                             <i data-lucide="chevron-left" class="w-4 h-4 mr-1"></i> Previous
                         </button>
                     </div>
+                </div>
+            `;
+        }
+
+        function renderReadyToSubmit() {
+            return `
+                <div class="text-center py-16">
+                    <div class="mx-auto w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-6 border-4 border-white shadow-md">
+                        <i data-lucide="send" class="w-12 h-12"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-slate-900 mb-4">Assessment Complete!</h2>
+                    <p class="text-lg text-slate-600 mb-10 max-w-md mx-auto">
+                        You have successfully answered all ${questions.length} questions. Click below to submit your responses and generate your Multiple Intelligences profile.
+                    </p>
+                    <button 
+                        onclick="processAndSubmitData()"
+                        class="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-semibold py-4 px-10 rounded-full shadow-lg shadow-indigo-200 transition-all hover:scale-105 active:scale-95 cursor-pointer w-full sm:w-auto"
+                    >
+                        <i data-lucide="save" class="w-5 h-5"></i> Submit & View Results
+                    </button>
+                </div>
+            `;
+        }
+
+        function renderSubmitting() {
+            return `
+                <div class="text-center py-24">
+                    <div class="mx-auto w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-6"></div>
+                    <h2 class="text-2xl font-bold text-slate-900 mb-2">Saving your results...</h2>
+                    <p class="text-slate-500">Please wait a moment while we process your profile and send it to the database.</p>
                 </div>
             `;
         }
@@ -378,12 +420,12 @@
             const qId = questions[currentQIndex].id;
             answers[qId] = score;
             
-            // Move to next question or results after a tiny delay for UX
             setTimeout(() => {
                 if (currentQIndex < questions.length - 1) {
                     currentQIndex++;
                 } else {
-                    currentState = 'results';
+                    // Go to the submit screen instead of straight to results
+                    currentState = 'ready-to-submit';
                 }
                 render();
             }, 150);
@@ -394,6 +436,62 @@
                 currentQIndex--;
                 render();
             }
+        };
+
+        window.processAndSubmitData = function() {
+            currentState = 'submitting';
+            render();
+
+            // 1. Tally up the raw scores per category
+            const scores = { Linguistic: 0, Logical: 0, Spatial: 0, Kinesthetic: 0, Musical: 0, Interpersonal: 0, Intrapersonal: 0, Naturalist: 0 };
+            questions.forEach(q => {
+                if (answers[q.id]) {
+                    scores[q.category] += answers[q.id];
+                }
+            });
+
+            // 2. Package user info and scores into a single object
+            const payload = {
+                fullName: userInfo.fullName,
+                sex: userInfo.sex,
+                gradeSection: userInfo.gradeSection,
+                address: userInfo.address,
+                ...scores
+            };
+
+            // 3. Fallback & Safety logic
+            if (GOOGLE_SCRIPT_URL.includes('docs.google.com')) {
+                alert("Oops! You pasted the Google Sheet link instead of the Web App URL. Please go back to Apps Script and deploy it as a Web App to get the script.google.com link.");
+                currentState = 'ready-to-submit';
+                render();
+                return;
+            }
+
+            if (GOOGLE_SCRIPT_URL === 'PASTE_YOUR_WEB_APP_URL_HERE' || GOOGLE_SCRIPT_URL.trim() === '') {
+                console.warn("Google Apps Script URL is not set. Skipping Database submission.");
+                setTimeout(() => {
+                    currentState = 'results';
+                    render();
+                }, 1000);
+                return;
+            }
+
+            // 4. Send to Google Sheets (using text/plain to avoid CORS preflight issues)
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            })
+            .then(response => {
+                currentState = 'results';
+                render();
+            })
+            .catch(error => {
+                console.error('Error saving to Google Sheets:', error);
+                // Still show results to the user even if the network fails
+                currentState = 'results';
+                render();
+            });
         };
 
         // --- INITIALIZE ---
