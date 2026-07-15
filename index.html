@@ -94,6 +94,12 @@
         let currentState = 'intro'; // 'intro', 'test', 'results'
         let currentQIndex = 0;
         let answers = {}; // Maps question ID to score
+        let userInfo = {
+            fullName: '',
+            address: '',
+            gradeSection: '',
+            sex: ''
+        };
 
         // --- DOM ELEMENTS ---
         const appContainer = document.getElementById('app-container');
@@ -150,6 +156,33 @@
                             <li>Takes approximately 3-5 minutes.</li>
                         </ul>
                     </div>
+
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-left max-w-xl mx-auto mt-6 space-y-4">
+                        <h3 class="font-semibold mb-2 text-slate-800 border-b border-slate-100 pb-2">Student Information:</h3>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                            <input type="text" id="input-fullname" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border border-slate-300 outline-none transition-colors" placeholder="Enter full name" value="${userInfo.fullName}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Address</label>
+                            <input type="text" id="input-address" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border border-slate-300 outline-none transition-colors" placeholder="Enter address" value="${userInfo.address}">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Section, Grade Level</label>
+                                <input type="text" id="input-grade" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border border-slate-300 outline-none transition-colors" placeholder="e.g. Section A, Grade 10" value="${userInfo.gradeSection}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Sex</label>
+                                <select id="input-sex" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border border-slate-300 outline-none transition-colors bg-white">
+                                    <option value="" ${userInfo.sex === '' ? 'selected' : ''}>Select...</option>
+                                    <option value="Male" ${userInfo.sex === 'Male' ? 'selected' : ''}>Male</option>
+                                    <option value="Female" ${userInfo.sex === 'Female' ? 'selected' : ''}>Female</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <button 
                         onclick="startTest()"
                         class="mt-8 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg shadow-indigo-200 transition-all hover:scale-105 active:scale-95 cursor-pointer"
@@ -282,12 +315,22 @@
 
             return `
                 <div class="py-4">
-                    <div class="text-center mb-10">
-                        <div class="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4 print-exact">
+                    <div class="text-center mb-8 print:mb-6">
+                        <div class="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4 print-exact print:hidden">
                             <i data-lucide="check-circle-2" class="w-8 h-8"></i>
                         </div>
                         <h2 class="text-3xl font-bold text-slate-900">Your Intelligence Profile</h2>
-                        <p class="text-slate-500 mt-2">Based on your responses, here are your dominant intelligences.</p>
+                        <p class="text-slate-500 mt-2 print:hidden">Based on your responses, here are your dominant intelligences.</p>
+                    </div>
+
+                    <div class="text-left mb-8 bg-slate-50 p-5 rounded-xl border border-slate-200 print-exact print-break-inside-avoid shadow-sm">
+                        <h3 class="font-bold text-lg border-b border-slate-200 pb-2 mb-3 text-slate-800">Student Profile</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6 text-sm">
+                            <div><span class="font-semibold text-slate-500 inline-block w-24">Name:</span> <span class="font-bold text-slate-800 text-base border-b border-slate-300 inline-block min-w-[150px] pb-1">${userInfo.fullName || 'N/A'}</span></div>
+                            <div><span class="font-semibold text-slate-500 inline-block w-24">Sex:</span> <span class="font-medium text-slate-800 border-b border-slate-300 inline-block min-w-[150px] pb-1">${userInfo.sex || 'N/A'}</span></div>
+                            <div><span class="font-semibold text-slate-500 inline-block w-24">Sec/Grade:</span> <span class="font-medium text-slate-800 border-b border-slate-300 inline-block min-w-[150px] pb-1">${userInfo.gradeSection || 'N/A'}</span></div>
+                            <div><span class="font-semibold text-slate-500 inline-block w-24">Address:</span> <span class="font-medium text-slate-800 border-b border-slate-300 inline-block min-w-[150px] pb-1">${userInfo.address || 'N/A'}</span></div>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
@@ -319,6 +362,12 @@
 
         // --- ACTIONS ---
         window.startTest = function() {
+            // Save user info before starting
+            userInfo.fullName = document.getElementById('input-fullname')?.value || '';
+            userInfo.address = document.getElementById('input-address')?.value || '';
+            userInfo.gradeSection = document.getElementById('input-grade')?.value || '';
+            userInfo.sex = document.getElementById('input-sex')?.value || '';
+
             currentState = 'test';
             currentQIndex = 0;
             answers = {};
