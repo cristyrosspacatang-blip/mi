@@ -1,502 +1,481 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multiple Intelligences Diagnostic Test</title>
-    <!-- Tailwind CSS for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons for graphics -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+import React, { useState, useEffect } from 'react';
+import { 
+  ShieldAlert, 
+  Send, 
+  User, 
+  BookOpen, 
+  Heart, 
+  Lock, 
+  CheckCircle2, 
+  AlertCircle, 
+  Clock, 
+  Inbox,
+  LogOut,
+  ShieldCheck,
+  Calendar
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  signInWithCustomToken, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
+
+// --- Firebase Initialization ---
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'counseling-app-demo-slots';
+
+// Mocked availability logic simulating structural filtering against a primary calendar.
+const GENERATED_SLOTS = [
+  { id: 'slot-1', date: 'Monday, July 20', time: '09:00 AM - 10:00 AM', value: '2026-07-20T09:00' },
+  { id: 'slot-2', date: 'Monday, July 20', time: '01:00 PM - 02:00 PM', value: '2026-07-20T13:00' },
+  { id: 'slot-3', date: 'Tuesday, July 21', time: '10:30 AM - 11:30 AM', value: '2026-07-21T10:30' },
+  { id: 'slot-4', date: 'Tuesday, July 21', time: '03:00 PM - 04:00 PM', value: '2026-07-21T15:00' },
+  { id: 'slot-5', date: 'Wednesday, July 22', time: '08:30 AM - 09:30 AM', value: '2026-07-22T08:30' },
+  { id: 'slot-6', date: 'Wednesday, July 22', time: '02:00 PM - 03:00 PM', value: '2026-07-22T14:00' },
+];
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [activeView, setActiveView] = useState('form');
+  const [isCounselorUnlocked, setIsCounselorUnlocked] = useState(false);
+  
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+      }
+    };
+    initAuth();
     
-    <style>
-        /* Custom print styles to ensure colors show up on the PDF */
-        @media print {
-            .print-exact {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
-            body {
-                background-color: white !important;
-            }
-            .print-break-inside-avoid {
-                break-inside: avoid;
-            }
-        }
-        
-        /* Smooth fade transition */
-        .fade-in {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
-</head>
-<body class="min-h-screen bg-slate-50 text-slate-800 font-sans p-4 md:p-8 flex items-center justify-center">
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
-    <div class="max-w-3xl w-full bg-white rounded-2xl shadow-xl overflow-hidden" id="app-container">
-        <!-- Content will be injected here by JavaScript -->
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+      <header className="bg-white shadow-sm border-b border-slate-200">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="bg-indigo-600 p-2 rounded-lg">
+              <Heart className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-xl font-bold text-slate-800">Support & Referral Portal</h1>
+          </div>
+          
+          <nav className="flex space-x-1 border border-slate-200 rounded-lg p-1 bg-slate-50">
+            <button 
+              onClick={() => setActiveView('form')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeView === 'form' 
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200' 
+                  : 'text-slate-600 hover:text-slate-800'
+              }`}
+            >
+              Submit Referral
+            </button>
+            <button 
+              onClick={() => setActiveView('dashboard')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1 ${
+                activeView === 'dashboard' 
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200' 
+                  : 'text-slate-600 hover:text-slate-800'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 mr-1" />
+              Counselor Dashboard
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        {!user ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-pulse flex flex-col items-center">
+              <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+              <p className="mt-4 text-slate-500 font-medium">Loading synchronization layer...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {activeView === 'form' && <ReferralForm user={user} />}
+            {activeView === 'dashboard' && (
+              isCounselorUnlocked ? (
+                <CounselorDashboard user={user} onLock={() => setIsCounselorUnlocked(false)} />
+              ) : (
+                <CounselorLogin onUnlock={() => setIsCounselorUnlocked(true)} />
+              )
+            )}
+          </>
+        )}
+      </main>
     </div>
+  );
+}
 
-    <script>
-        // ==========================================
-        // 🛑 GOOGLE SHEETS SETUP 🛑
-        // Paste your Google Web App URL (script.google.com/...) below!
-        // Do NOT paste the docs.google.com/spreadsheets/... link.
-        // ==========================================
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzaFcvuLqdoR3s9lL10Mz_QiEx8o183Me-AoALUXWH751D4j3QfUXdYnAxuCTVpuoMc1A/exec';
+function ReferralForm({ user }) {
+  const [formData, setFormData] = useState({
+    studentName: '',
+    gradeSection: '',
+    referrerRole: 'Teacher',
+    referrerName: '',
+    reasonCategory: 'Academic',
+    urgency: 'Medium',
+    details: '',
+    selectedSlotId: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-        // --- DATA DEFINITIONS ---
-        const intelligenceDetails = {
-            Linguistic: { icon: 'brain', color: 'bg-blue-500', textColor: 'text-blue-600', description: "Word Smart: You excel in words, language, and writing. You learn best by reading, taking notes, and listening to lectures." },
-            Logical: { icon: 'calculator', color: 'bg-red-500', textColor: 'text-red-600', description: "Number/Reasoning Smart: You excel in math and logical problem-solving. You learn best by categorizing, classifying, and working with abstract patterns." },
-            Spatial: { icon: 'palette', color: 'bg-purple-500', textColor: 'text-purple-600', description: "Picture Smart: You are highly visual and excel in art or navigation. You learn best by looking at pictures, watching videos, and using spatial understanding." },
-            Kinesthetic: { icon: 'activity', color: 'bg-orange-500', textColor: 'text-orange-600', description: "Body Smart: You excel in physical activities, sports, or hands-on tasks. You learn best by doing, touching, and moving." },
-            Musical: { icon: 'music', color: 'bg-pink-500', textColor: 'text-pink-600', description: "Music Smart: You have a strong sense of rhythm and pitch. You learn best through melody, beats, and auditory patterns." },
-            Interpersonal: { icon: 'users', color: 'bg-teal-500', textColor: 'text-teal-600', description: "People Smart: You excel in interacting with others, empathy, and leadership. You learn best by collaborating, discussing, and working in groups." },
-            Intrapersonal: { icon: 'user-circle', color: 'bg-indigo-500', textColor: 'text-indigo-600', description: "Self Smart: You have deep self-awareness and understand your own emotions/goals. You learn best by working independently and reflecting." },
-            Naturalist: { icon: 'tree-pine', color: 'bg-green-500', textColor: 'text-green-600', description: "Nature Smart: You easily recognize and categorize plants, animals, and nature. You learn best when subjects are connected to the natural world." }
-        };
+  const selectSlot = (id) => {
+    setFormData(prev => ({ ...prev, selectedSlotId: id }));
+  };
 
-        const questions = [
-            { id: 1, category: 'Linguistic', text: 'I enjoy reading books, articles, or stories in my free time.' },
-            { id: 2, category: 'Logical', text: 'I enjoy solving puzzles, riddles, or complex math problems.' },
-            { id: 3, category: 'Spatial', text: 'I can easily visualize objects, maps, or pictures in my mind.' },
-            { id: 4, category: 'Kinesthetic', text: 'I learn new skills best by actually doing them rather than just reading about them.' },
-            { id: 5, category: 'Musical', text: 'I often find myself tapping to a beat or humming a tune.' },
-            { id: 6, category: 'Interpersonal', text: 'I prefer working in a team or group rather than working completely alone.' },
-            { id: 7, category: 'Intrapersonal', text: 'I need quiet time to process my feelings and thoughts.' },
-            { id: 8, category: 'Naturalist', text: 'I feel most energized and relaxed when I am outdoors in nature.' },
-            
-            { id: 9, category: 'Linguistic', text: 'I find it easy to explain my ideas to others using words.' },
-            { id: 10, category: 'Logical', text: 'I like to know how things work and look for logical patterns.' },
-            { id: 11, category: 'Spatial', text: 'I enjoy drawing, painting, or expressing myself visually.' },
-            { id: 12, category: 'Kinesthetic', text: 'I use a lot of hand gestures and body language when I talk.' },
-            { id: 13, category: 'Musical', text: 'I can easily remember melodies or lyrics to songs I hear.' },
-            { id: 14, category: 'Interpersonal', text: 'People often come to me for advice or to help resolve conflicts.' },
-            { id: 15, category: 'Intrapersonal', text: 'I have a very clear understanding of my own strengths and weaknesses.' },
-            { id: 16, category: 'Naturalist', text: 'I am highly observant of changes in the weather, plants, or animals around me.' },
-            
-            { id: 17, category: 'Linguistic', text: 'I enjoy playing word games like Scrabble or doing crossword puzzles.' },
-            { id: 18, category: 'Logical', text: 'I prefer things to be organized in a systematic, step-by-step way.' },
-            { id: 19, category: 'Spatial', text: 'I am good at reading maps and rarely get lost in new places.' },
-            { id: 20, category: 'Kinesthetic', text: 'I find it difficult to sit still for long periods of time.' },
-            { id: 21, category: 'Musical', text: 'I can tell when a musical note is off-key.' },
-            { id: 22, category: 'Interpersonal', text: 'I can easily pick up on how other people are feeling without them telling me.' },
-            { id: 23, category: 'Intrapersonal', text: 'I prefer to set my own goals and work independently to achieve them.' },
-            { id: 24, category: 'Naturalist', text: 'I enjoy gardening, caring for pets, or watching nature documentaries.' }
-        ];
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    if (!formData.selectedSlotId) {
+      alert("Please select a preferred session timeslot.");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const selectedSlotDetails = GENERATED_SLOTS.find(s => s.id === formData.selectedSlotId);
+      const referralsRef = collection(db, 'artifacts', appId, 'public', 'data', 'referrals');
+      
+      await addDoc(referralsRef, {
+        ...formData,
+        slotDate: selectedSlotDetails?.date,
+        slotTime: selectedSlotDetails?.time,
+        slotIso: selectedSlotDetails?.value,
+        timestamp: Date.now(),
+        status: 'Awaiting Action'
+      });
+      
+      setSubmitSuccess(true);
+      setFormData({
+        studentName: '',
+        gradeSection: '',
+        referrerRole: 'Teacher',
+        referrerName: '',
+        reasonCategory: 'Academic',
+        urgency: 'Medium',
+        details: '',
+        selectedSlotId: ''
+      });
+    } catch (error) {
+      console.error("Submission error:", error);
+      alert("Failed to submit. Please verify connection and retry.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-        const options = [
-            { val: 1, label: 'Strongly Disagree' },
-            { val: 2, label: 'Disagree' },
-            { val: 3, label: 'Neutral' },
-            { val: 4, label: 'Agree' },
-            { val: 5, label: 'Strongly Agree' }
-        ];
+  if (submitSuccess) {
+    return (
+      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-emerald-100 p-8 text-center">
+        <div className="mx-auto w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6">
+          <CheckCircle2 className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">Referral & Session Placed</h2>
+        <p className="text-slate-600 mb-8">
+          The intake profile has been logged, and your chosen time slot has been set aside for tentative counselor approval.
+        </p>
+        <button 
+          onClick={() => setSubmitSuccess(false)}
+          className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+        >
+          Submit Another Request
+        </button>
+      </div>
+    );
+  }
 
-        // --- APP STATE ---
-        let currentState = 'intro'; // 'intro', 'test', 'ready-to-submit', 'submitting', 'results'
-        let currentQIndex = 0;
-        let answers = {}; // Maps question ID to score
-        let userInfo = {
-            fullName: '',
-            address: '',
-            gradeSection: '',
-            sex: ''
-        };
+  return (
+    <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-gradient-to-r from-indigo-600 to-blue-700 p-6 text-white">
+        <h2 className="text-2xl font-bold flex items-center">
+          <Send className="w-6 h-6 mr-2 opacity-90" />
+          Counseling Referral Intake
+        </h2>
+        <p className="text-indigo-100 mt-2 text-sm">
+          Submit student details and pick an open slot reflected directly from the active counselor calendar framework.
+        </p>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
+        
+        {/* Student Data */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-slate-800 flex items-center border-b pb-2">
+            <User className="w-5 h-5 mr-2 text-indigo-500" />
+            Student Profile
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Student's Full Name *</label>
+              <input 
+                type="text" 
+                name="studentName"
+                required
+                value={formData.studentName}
+                onChange={handleChange}
+                placeholder="Jane Doe"
+                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Grade & Section</label>
+              <input 
+                type="text" 
+                name="gradeSection"
+                value={formData.gradeSection}
+                onChange={handleChange}
+                placeholder="Grade 10 - Rizal"
+                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+          </div>
+        </div>
 
-        // --- DOM ELEMENTS ---
-        const appContainer = document.getElementById('app-container');
+        {/* Reason */}
+        <div className="space-y-4 pt-2">
+          <h3 className="text-lg font-semibold text-slate-800 flex items-center border-b pb-2">
+            <BookOpen className="w-5 h-5 mr-2 text-indigo-500" />
+            Observation Summary
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+              <select 
+                name="reasonCategory"
+                value={formData.reasonCategory}
+                onChange={handleChange}
+                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white"
+              >
+                <option value="Academic">Academic (Grades, Attendance)</option>
+                <option value="Behavioral">Behavioral / Conduct</option>
+                <option value="Emotional">Emotional / Personal Wellbeing</option>
+                <option value="Social">Peer Issues / Bullying Relations</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Urgency</label>
+              <select 
+                name="urgency"
+                value={formData.urgency}
+                onChange={handleChange}
+                className="w-full p-2.5 border border-slate-300 rounded-lg bg-white"
+              >
+                <option value="Low">Low - Monitoring Status</option>
+                <option value="Medium">Medium - Clear changes noted</option>
+                <option value="High">High - Requires swift triage</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Observation Details *</label>
+            <textarea 
+              name="details"
+              required
+              rows="3"
+              value={formData.details}
+              onChange={handleChange}
+              placeholder="Provide specific circumstances regarding this recommendation..."
+              className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+            ></textarea>
+          </div>
+        </div>
 
-        // --- RENDER LOGIC ---
-        function render() {
-            let html = '';
+        {/* Timeslot Selector */}
+        <div className="space-y-4 pt-2">
+          <h3 className="text-lg font-semibold text-slate-800 flex items-center border-b pb-2">
+            <Calendar className="w-5 h-5 mr-2 text-indigo-500" />
+            Select Session Timeslot *
+          </h3>
+          <p className="text-xs text-slate-500">
+            Showing conflict-checked intervals available on the counselor's schedule calendar map.
+          </p>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto p-1 bg-slate-50 border rounded-xl">
+            {GENERATED_SLOTS.map((slot) => {
+              const isSelected = formData.selectedSlotId === slot.id;
+              return (
+                <button
+                  key={slot.id}
+                  type="button"
+                  onClick={() => selectSlot(slot.id)}
+                  className={`p-3 text-left rounded-lg border transition-all flex flex-col justify-between ${
+                    isSelected 
+                      ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-500 ring-opacity-50' 
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <span className="text-xs font-bold text-slate-400 uppercase">{slot.date}</span>
+                  <span className={`text-sm font-medium mt-0.5 ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>
+                    {slot.time}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-            // PROGRESS BAR (Only show during test)
-            if (currentState === 'test') {
-                const progressPercentage = ((currentQIndex + 1) / questions.length) * 100;
-                html += `
-                    <div class="w-full bg-slate-100 h-2">
-                        <div class="bg-indigo-600 h-2 transition-all duration-300" style="width: ${progressPercentage}%"></div>
-                    </div>
-                `;
-            }
+        {/* Referrer Info */}
+        <div className="space-y-4 pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Your Role</label>
+              <select name="referrerRole" value={formData.referrerRole} onChange={handleChange} className="w-full p-2.5 border border-slate-300 rounded-lg bg-white">
+                <option value="Teacher">Teacher / Faculty</option>
+                <option value="Peer">Classmate / Peer</option>
+                <option value="Self">Self Referral</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Your Name (Optional)</label>
+              <input 
+                type="text" 
+                name="referrerName" 
+                value={formData.referrerName} 
+                onChange={handleChange} 
+                placeholder="Leave blank for anonymity" 
+                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+          </div>
+        </div>
 
-            html += `<div class="p-6 md:p-10 fade-in">`;
+        <div className="pt-4 border-t border-slate-100 flex justify-end">
+          <button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-6 rounded-lg transition-colors flex items-center disabled:opacity-70 shadow-sm"
+          >
+            {isSubmitting ? 'Processing Submission...' : 'File Secure Referral'}
+            <Send className="w-4 h-4 ml-2" />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
-            if (currentState === 'intro') {
-                html += renderIntro();
-            } else if (currentState === 'test') {
-                html += renderTest();
-            } else if (currentState === 'ready-to-submit') {
-                html += renderReadyToSubmit();
-            } else if (currentState === 'submitting') {
-                html += renderSubmitting();
-            } else if (currentState === 'results') {
-                html += renderResults();
-            }
+function CounselorLogin({ onUnlock }) {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState(false);
 
-            html += `</div>`;
-            appContainer.innerHTML = html;
-            
-            // Initialize lucide icons for newly injected HTML
-            lucide.createIcons();
-        }
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (pin === '1234') onUnlock();
+    else { setError(true); setPin(''); }
+  };
 
-        function renderIntro() {
-            return `
-                <div class="text-center space-y-6 py-10">
-                    <div class="mx-auto w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 mb-6">
-                        <i data-lucide="brain" class="w-10 h-10"></i>
-                    </div>
-                    <h1 class="text-3xl md:text-4xl font-bold text-slate-900">
-                        Multiple Intelligences Diagnostic Test
-                    </h1>
-                    <p class="text-lg text-slate-600 max-w-xl mx-auto">
-                        Discover your unique learning style and cognitive strengths based on Howard Gardner's Theory of Multiple Intelligences. 
-                    </p>
-                    <div class="bg-slate-50 rounded-xl p-6 text-left max-w-xl mx-auto border border-slate-100 shadow-sm">
-                        <h3 class="font-semibold mb-2">Instructions:</h3>
-                        <ul class="list-disc pl-5 space-y-2 text-slate-600 text-sm">
-                            <li>You will be presented with ${questions.length} statements.</li>
-                            <li>Rate how strongly you agree or disagree with each statement.</li>
-                            <li>Answer honestly based on how you actually feel, not how you think you should feel.</li>
-                            <li>Takes approximately 3-5 minutes.</li>
-                        </ul>
-                    </div>
+  return (
+    <div className="max-w-md mx-auto mt-12 bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center">
+      <div className="mx-auto w-16 h-16 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mb-6"><Lock className="w-8 h-8" /></div>
+      <h2 className="text-2xl font-bold text-slate-800 mb-2">Internal Clearance</h2>
+      <p className="text-slate-500 text-sm mb-6">Verify authorization credential pin. <br/><span className="text-indigo-500 font-medium">(PIN: 1234)</span></p>
+      <form onSubmit={handleLogin} className="space-y-4">
+        <input 
+          type="password" 
+          value={pin} 
+          onChange={(e) => { setPin(e.target.value); setError(false); }} 
+          placeholder="••••" 
+          className="w-full text-center text-2xl tracking-widest p-3 border rounded-lg outline-none border-slate-300 focus:border-indigo-500" 
+        />
+        {error && <p className="text-red-500 text-sm">Authentication check failed.</p>}
+        <button type="submit" className="w-full bg-slate-800 text-white font-medium py-3 rounded-lg hover:bg-slate-900 transition-colors">Access Log</button>
+      </form>
+    </div>
+  );
+}
 
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-left max-w-xl mx-auto mt-6 space-y-4">
-                        <h3 class="font-semibold mb-2 text-slate-800 border-b border-slate-100 pb-2">Student Information:</h3>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                            <input type="text" id="input-fullname" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border border-slate-300 outline-none transition-colors" placeholder="Enter full name" value="${userInfo.fullName}">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Address</label>
-                            <input type="text" id="input-address" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border border-slate-300 outline-none transition-colors" placeholder="Enter address" value="${userInfo.address}">
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">Section, Grade Level</label>
-                                <input type="text" id="input-grade" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border border-slate-300 outline-none transition-colors" placeholder="e.g. Section A, Grade 10" value="${userInfo.gradeSection}">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">Sex</label>
-                                <select id="input-sex" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border border-slate-300 outline-none transition-colors bg-white">
-                                    <option value="" ${userInfo.sex === '' ? 'selected' : ''}>Select...</option>
-                                    <option value="Male" ${userInfo.sex === 'Male' ? 'selected' : ''}>Male</option>
-                                    <option value="Female" ${userInfo.sex === 'Female' ? 'selected' : ''}>Female</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+function CounselorDashboard({ user, onLock }) {
+  const [referrals, setReferrals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedReferral, setSelectedReferral] = useState(null);
 
-                    <button 
-                        onclick="startTest()"
-                        class="mt-8 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg shadow-indigo-200 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                    >
-                        Start Diagnostic Assessment
-                    </button>
-                </div>
-            `;
-        }
+  useEffect(() => {
+    if (!user) return;
+    const referralsRef = collection(db, 'artifacts', appId, 'public', 'data', 'referrals');
+    const unsubscribe = onSnapshot(referralsRef, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      data.sort((a, b) => b.timestamp - a.timestamp);
+      setReferrals(data);
+      setLoading(false);
+    }, () => setLoading(false));
+    return () => unsubscribe();
+  }, [user]);
 
-        function renderTest() {
-            const currentQuestion = questions[currentQIndex];
-            const currentAnswer = answers[currentQuestion.id];
+  if (loading) return <div className="text-center py-12 text-slate-500">Retrieving referral metrics...</div>;
 
-            let optionsHtml = options.map(opt => {
-                const isSelected = currentAnswer === opt.val;
-                return `
-                    <button
-                        onclick="handleAnswer(${opt.val})"
-                        class="flex flex-col items-center justify-center py-4 px-2 bg-white border-2 rounded-xl transition-all group cursor-pointer
-                        ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-500 hover:bg-indigo-50'}"
-                    >
-                        <div class="w-6 h-6 rounded-full border-2 mb-2 transition-colors
-                            ${isSelected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 group-hover:border-indigo-500 group-hover:bg-indigo-500'}">
-                        </div>
-                        <span class="text-sm font-medium text-center ${isSelected ? 'text-indigo-700' : 'text-slate-600 group-hover:text-indigo-700'}">
-                            ${opt.label}
-                        </span>
-                    </button>
-                `;
-            }).join('');
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-[calc(100vh-8rem)]">
+        <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+          <h2 className="font-bold text-slate-800 flex items-center"><Inbox className="w-5 h-5 mr-2 text-slate-500" /> Incoming ({referrals.length})</h2>
+          <button onClick={onLock} className="text-slate-400 hover:text-slate-700"><LogOut className="w-4 h-4" /></button>
+        </div>
+        <div className="overflow-y-auto flex-1 divide-y divide-slate-100">
+          {referrals.map(ref => (
+            <button 
+              key={ref.id} 
+              onClick={() => setSelectedReferral(ref)}
+              className={`w-full text-left p-4 hover:bg-slate-50 transition-colors ${selectedReferral?.id === ref.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''}`}
+            >
+              <div className="flex justify-between items-start"><span className="font-semibold text-slate-800">{ref.studentName}</span></div>
+              <div className="text-xs text-indigo-600 font-medium mt-1">{ref.slotDate} • {ref.slotTime}</div>
+            </button>
+          ))}
+        </div>
+      </div>
 
-            return `
-                <div class="py-6 min-h-[400px] flex flex-col">
-                    <div class="flex justify-between items-center mb-8 text-sm text-slate-400 font-medium">
-                        <span>Question ${currentQIndex + 1} of ${questions.length}</span>
-                        <span class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">
-                            Diagnostic Progress
-                        </span>
-                    </div>
-                    
-                    <div class="flex-grow flex flex-col justify-center">
-                        <h2 class="text-2xl md:text-3xl font-medium text-slate-800 text-center mb-12 leading-relaxed">
-                            "${currentQuestion.text}"
-                        </h2>
-
-                        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mt-auto">
-                            ${optionsHtml}
-                        </div>
-                    </div>
-
-                    <div class="mt-8 pt-6 border-t border-slate-100 flex justify-between">
-                        <button 
-                            onclick="handlePrevious()"
-                            ${currentQIndex === 0 ? 'disabled' : ''}
-                            class="flex items-center text-sm font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer
-                            ${currentQIndex === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'}"
-                        >
-                            <i data-lucide="chevron-left" class="w-4 h-4 mr-1"></i> Previous
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderReadyToSubmit() {
-            return `
-                <div class="text-center py-16">
-                    <div class="mx-auto w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-6 border-4 border-white shadow-md">
-                        <i data-lucide="send" class="w-12 h-12"></i>
-                    </div>
-                    <h2 class="text-3xl font-bold text-slate-900 mb-4">Assessment Complete!</h2>
-                    <p class="text-lg text-slate-600 mb-10 max-w-md mx-auto">
-                        You have successfully answered all ${questions.length} questions. Click below to submit your responses and generate your Multiple Intelligences profile.
-                    </p>
-                    <button 
-                        onclick="processAndSubmitData()"
-                        class="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-lg font-semibold py-4 px-10 rounded-full shadow-lg shadow-indigo-200 transition-all hover:scale-105 active:scale-95 cursor-pointer w-full sm:w-auto"
-                    >
-                        <i data-lucide="save" class="w-5 h-5"></i> Submit & View Results
-                    </button>
-                </div>
-            `;
-        }
-
-        function renderSubmitting() {
-            return `
-                <div class="text-center py-24">
-                    <div class="mx-auto w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-6"></div>
-                    <h2 class="text-2xl font-bold text-slate-900 mb-2">Saving your results...</h2>
-                    <p class="text-slate-500">Please wait a moment while we process your profile and send it to the database.</p>
-                </div>
-            `;
-        }
-
-        function renderResults() {
-            // Calculate Scores
-            const scores = {
-                Linguistic: 0, Logical: 0, Spatial: 0, Kinesthetic: 0,
-                Musical: 0, Interpersonal: 0, Intrapersonal: 0, Naturalist: 0
-            };
-            const maxCategoryScore = 15; // 3 questions * 5 max points
-
-            questions.forEach(q => {
-                if (answers[q.id]) {
-                    scores[q.category] += answers[q.id];
-                }
-            });
-
-            // Format, calculate percentage, and sort
-            const finalScores = Object.entries(scores).map(([category, score]) => ({
-                category,
-                score,
-                percentage: Math.round((score / maxCategoryScore) * 100),
-                ...intelligenceDetails[category]
-            })).sort((a, b) => b.percentage - a.percentage);
-
-            const top3 = finalScores.slice(0, 3);
-
-            let top3Html = top3.map((item, idx) => `
-                <div class="${idx === 0 ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'} border rounded-xl p-5 relative overflow-hidden print-break-inside-avoid">
-                    <div class="flex items-center gap-3 mb-3 relative z-10">
-                        <div class="p-2 rounded-lg ${item.color} text-white print-exact">
-                            <i data-lucide="${item.icon}" class="w-6 h-6"></i>
-                        </div>
-                        <div>
-                            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                ${idx === 0 ? 'Primary' : `Secondary #${idx}`}
-                            </div>
-                            <div class="font-bold text-lg text-slate-800">${item.category}</div>
-                        </div>
-                    </div>
-                    <div class="text-3xl font-bold text-slate-800 mb-2 relative z-10">${item.percentage}%</div>
-                    <p class="text-sm text-slate-600 relative z-10">${item.description}</p>
-                    
-                    ${idx === 0 ? `<div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500 opacity-5 rounded-bl-full print:hidden"></div>` : ''}
-                </div>
-            `).join('');
-
-            let breakdownHtml = finalScores.map(item => `
-                <div class="group print-break-inside-avoid">
-                    <div class="flex justify-between items-end mb-1">
-                        <div class="flex items-center gap-2">
-                            <i data-lucide="${item.icon}" class="w-5 h-5 ${item.textColor}"></i>
-                            <span class="font-semibold text-slate-700">${item.category}</span>
-                        </div>
-                        <span class="text-sm font-bold text-slate-500">${item.percentage}%</span>
-                    </div>
-                    <div class="w-full bg-slate-100 rounded-full h-3 mb-1 overflow-hidden print-exact">
-                        <div 
-                            class="h-3 rounded-full ${item.color} print-exact"
-                            style="width: ${item.percentage}%"
-                        ></div>
-                    </div>
-                    <p class="text-xs text-slate-500 pl-7 hidden group-hover:block transition-all print:block">
-                        ${item.description}
-                    </p>
-                </div>
-            `).join('');
-
-            return `
-                <div class="py-4">
-                    <div class="text-center mb-8 print:mb-6">
-                        <div class="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-4 print-exact print:hidden">
-                            <i data-lucide="check-circle-2" class="w-8 h-8"></i>
-                        </div>
-                        <h2 class="text-3xl font-bold text-slate-900">Your Intelligence Profile</h2>
-                        <p class="text-slate-500 mt-2 print:hidden">Based on your responses, here are your dominant intelligences.</p>
-                    </div>
-
-                    <div class="text-left mb-8 bg-slate-50 p-5 rounded-xl border border-slate-200 print-exact print-break-inside-avoid shadow-sm">
-                        <h3 class="font-bold text-lg border-b border-slate-200 pb-2 mb-3 text-slate-800">Student Profile</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6 text-sm">
-                            <div><span class="font-semibold text-slate-500 inline-block w-24">Name:</span> <span class="font-bold text-slate-800 text-base border-b border-slate-300 inline-block min-w-[150px] pb-1">${userInfo.fullName || 'N/A'}</span></div>
-                            <div><span class="font-semibold text-slate-500 inline-block w-24">Sex:</span> <span class="font-medium text-slate-800 border-b border-slate-300 inline-block min-w-[150px] pb-1">${userInfo.sex || 'N/A'}</span></div>
-                            <div><span class="font-semibold text-slate-500 inline-block w-24">Sec/Grade:</span> <span class="font-medium text-slate-800 border-b border-slate-300 inline-block min-w-[150px] pb-1">${userInfo.gradeSection || 'N/A'}</span></div>
-                            <div><span class="font-semibold text-slate-500 inline-block w-24">Address:</span> <span class="font-medium text-slate-800 border-b border-slate-300 inline-block min-w-[150px] pb-1">${userInfo.address || 'N/A'}</span></div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-                        ${top3Html}
-                    </div>
-
-                    <h3 class="font-bold text-xl text-slate-800 mb-6 mt-8">Complete Breakdown</h3>
-                    <div class="space-y-6">
-                        ${breakdownHtml}
-                    </div>
-
-                    <div class="mt-12 border-t border-slate-100 pt-8 flex flex-col sm:flex-row justify-center items-center gap-4 print:hidden">
-                        <button 
-                            onclick="startTest()"
-                            class="inline-flex items-center gap-2 text-indigo-600 font-semibold hover:text-indigo-800 transition-colors bg-indigo-50 px-6 py-3 rounded-full hover:bg-indigo-100 w-full sm:w-auto justify-center cursor-pointer"
-                        >
-                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Retake Diagnostic
-                        </button>
-                        <button 
-                            onclick="window.print()"
-                            class="inline-flex items-center gap-2 text-white font-semibold transition-colors bg-indigo-600 px-6 py-3 rounded-full hover:bg-indigo-700 shadow-md hover:shadow-lg w-full sm:w-auto justify-center cursor-pointer print-exact"
-                        >
-                            <i data-lucide="download" class="w-4 h-4"></i> Export Report (PDF)
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-
-        // --- ACTIONS ---
-        window.startTest = function() {
-            // Save user info before starting
-            userInfo.fullName = document.getElementById('input-fullname')?.value || '';
-            userInfo.address = document.getElementById('input-address')?.value || '';
-            userInfo.gradeSection = document.getElementById('input-grade')?.value || '';
-            userInfo.sex = document.getElementById('input-sex')?.value || '';
-
-            currentState = 'test';
-            currentQIndex = 0;
-            answers = {};
-            render();
-        };
-
-        window.handleAnswer = function(score) {
-            const qId = questions[currentQIndex].id;
-            answers[qId] = score;
-            
-            setTimeout(() => {
-                if (currentQIndex < questions.length - 1) {
-                    currentQIndex++;
-                } else {
-                    // Go to the submit screen instead of straight to results
-                    currentState = 'ready-to-submit';
-                }
-                render();
-            }, 150);
-        };
-
-        window.handlePrevious = function() {
-            if (currentQIndex > 0) {
-                currentQIndex--;
-                render();
-            }
-        };
-
-        window.processAndSubmitData = function() {
-            currentState = 'submitting';
-            render();
-
-            // 1. Tally up the raw scores per category
-            const scores = { Linguistic: 0, Logical: 0, Spatial: 0, Kinesthetic: 0, Musical: 0, Interpersonal: 0, Intrapersonal: 0, Naturalist: 0 };
-            questions.forEach(q => {
-                if (answers[q.id]) {
-                    scores[q.category] += answers[q.id];
-                }
-            });
-
-            // 2. Package user info and scores into a single object
-            const payload = {
-                fullName: userInfo.fullName,
-                sex: userInfo.sex,
-                gradeSection: userInfo.gradeSection,
-                address: userInfo.address,
-                ...scores
-            };
-
-            // 3. Fallback & Safety logic
-            if (GOOGLE_SCRIPT_URL.includes('docs.google.com')) {
-                alert("Oops! You pasted the Google Sheet link instead of the Web App URL. Please go back to Apps Script and deploy it as a Web App to get the script.google.com link.");
-                currentState = 'ready-to-submit';
-                render();
-                return;
-            }
-
-            if (GOOGLE_SCRIPT_URL === 'PASTE_YOUR_WEB_APP_URL_HERE' || GOOGLE_SCRIPT_URL.trim() === '') {
-                console.warn("Google Apps Script URL is not set. Skipping Database submission.");
-                setTimeout(() => {
-                    currentState = 'results';
-                    render();
-                }, 1000);
-                return;
-            }
-
-            // 4. Send to Google Sheets (using text/plain to avoid CORS preflight issues)
-            fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(payload)
-            })
-            .then(response => {
-                currentState = 'results';
-                render();
-            })
-            .catch(error => {
-                console.error('Error saving to Google Sheets:', error);
-                // Still show results to the user even if the network fails
-                currentState = 'results';
-                render();
-            });
-        };
-
-        // --- INITIALIZE ---
-        render();
-
-    </script>
-</body>
-</html>
+      <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 h-[calc(100vh-8rem)] flex flex-col">
+        {!selectedReferral ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-400"><Inbox className="w-12 h-12 mb-2 text-slate-200" /><p>Select a case from the intake list.</p></div>
+        ) : (
+          <div className="p-6 space-y-6 overflow-y-auto flex-1">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-800">{selectedReferral.studentName}</h2>
+              <p className="text-sm text-slate-500">{selectedReferral.gradeSection || 'No Group Section Designation'}</p>
+            </div>
+            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+              <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-1">Requested Availability Slot</h4>
+              <p className="font-semibold text-indigo-900">{selectedReferral.slotDate} at {selectedReferral.slotTime}</p>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-xl">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Referral Statement</h4>
+              <p className="text-slate-700 whitespace-pre-wrap mt-2">{selectedReferral.details}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
